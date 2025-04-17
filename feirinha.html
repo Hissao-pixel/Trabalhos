@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Interferência Quântica - Experimento da Dupla Fenda</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f7ff;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            color: #1a237e;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: #3f51b5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #283593;
+        }
+        
+        button.active {
+            background-color: #1a237e;
+            font-weight: bold;
+        }
+        
+        .experiment-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        canvas {
+            border: 1px solid #ddd;
+            background-color: #000;
+            margin-bottom: 20px;
+        }
+        
+        .explanation {
+            margin-top: 40px;
+            padding: 20px;
+            background-color: #e8f5e9;
+            border-radius: 8px;
+            border-left: 5px solid #4caf50;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        
+        .slider-container label {
+            width: 150px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+        }
+        
+        .value-display {
+            width: 50px;
+            text-align: center;
+            margin-left: 10px;
+        }
+        
+        @media (max-width: 600px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simulador de Interferência Quântica</h1>
+        <h2 style="text-align: center; color: #3f51b5;">Experimento da Dupla Fenda</h2>
+        
+        <div class="controls">
+            <button id="single-slit">Uma Fenda</button>
+            <button id="double-slit" class="active">Duas Fendas</button>
+            <button id="measure">Medir Partículas</button>
+            <button id="reset">Reiniciar</button>
+        </div>
+        
+        <div class="slider-container">
+            <label for="particle-rate">Velocidade de Emissão:</label>
+            <input type="range" id="particle-rate" min="1" max="100" value="50">
+            <span id="rate-value" class="value-display">50</span>
+        </div>
+        
+        <div class="slider-container">
+            <label for="wavelength">Comprimento de Onda:</label>
+            <input type="range" id="wavelength" min="5" max="50" value="20">
+            <span id="wavelength-value" class="value-display">20</span>
+        </div>
+        
+        <div class="experiment-container">
+            <canvas id="experiment" width="800" height="500"></canvas>
+        </div>
+        
+        <div class="explanation">
+            <h3>O que está acontecendo?</h3>
+            <p>O experimento da dupla fenda é uma demonstração fundamental da natureza quântica da matéria. Quando partículas como elétrons ou fótons passam por fendas, elas exibem um comportamento que só pode ser explicado usando a mecânica quântica.</p>
+            
+            <h4>Comportamento Ondulatório</h4>
+            <p>Com duas fendas abertas e sem observação, as partículas quânticas se comportam como ondas, criando um padrão de interferência na tela detectora. Este padrão é caracterizado por faixas claras e escuras (máximos e mínimos de probabilidade).</p>
+            
+            <h4>Observação e Colapso da Função de Onda</h4>
+            <p>Quando "medimos" por qual fenda cada partícula passou, observamos um comportamento corpuscular. A função de onda "colapsa" e o padrão de interferência desaparece, mostrando apenas dois picos correspondentes às duas fendas.</p>
+            
+            <h4>Dualidade Onda-Partícula</h4>
+            <p>Este experimento ilustra a dualidade onda-partícula, um dos conceitos mais fundamentais da física quântica. As partículas quânticas podem exibir propriedades tanto de ondas quanto de partículas, dependendo de como são observadas.</p>
+        </div>
+    </div>
+
+    <script>
+        // Elementos do DOM
+        const canvas = document.getElementById('experiment');
+        const ctx = canvas.getContext('2d');
+        const singleSlitBtn = document.getElementById('single-slit');
+        const doubleSlitBtn = document.getElementById('double-slit');
+        const measureBtn = document.getElementById('measure');
+        const resetBtn = document.getElementById('reset');
+        const particleRateSlider = document.getElementById('particle-rate');
+        const rateValueDisplay = document.getElementById('rate-value');
+        const wavelengthSlider = document.getElementById('wavelength');
+        const wavelengthValueDisplay = document.getElementById('wavelength-value');
+        
+        // Configurações do experimento
+        let config = {
+            slitMode: 'double', // 'single' ou 'double'
+            measuring: false,    // Se estamos observando as partículas
+            particleRate: 50,    // Taxa de emissão de partículas
+            wavelength: 20,      // Comprimento de onda (afeta o padrão de interferência)
+            particles: [],       // Array para armazenar partículas
+            screen: new Array(canvas.width).fill(0) // Tela de detecção
+        };
+        
+        // Configurações da simulação
+        const SLIT_WIDTH = 10;
+        const SLIT_HEIGHT = 60;
+        const SLIT_SPACING = 40;
+        const SLIT_Y_POSITION = canvas.height / 2 - SLIT_HEIGHT / 2;
+        const SLIT_X_POSITION = canvas.width / 3;
+        const PARTICLE_SIZE = 3;
+        const PARTICLE_SPEED = 2;
+        const SCREEN_X_POSITION = canvas.width - 50;
+        
+        // Event listeners para controles
+        singleSlitBtn.addEventListener('click', () => {
+            setSlitMode('single');
+            resetExperiment();
+        });
+        
+        doubleSlitBtn.addEventListener('click', () => {
+            setSlitMode('double');
+            resetExperiment();
+        });
+        
+        measureBtn.addEventListener('click', () => {
+            config.measuring = !config.measuring;
+            measureBtn.classList.toggle('active', config.measuring);
+            resetExperiment();
+        });
+        
+        resetBtn.addEventListener('click', resetExperiment);
+        
+        particleRateSlider.addEventListener('input', () => {
+            config.particleRate = parseInt(particleRateSlider.value);
+            rateValueDisplay.textContent = config.particleRate;
+        });
+        
+        wavelengthSlider.addEventListener('input', () => {
+            config.wavelength = parseInt(wavelengthSlider.value);
+            wavelengthValueDisplay.textContent = config.wavelength;
+            resetExperiment();
+        });
+        
+        // Função para definir o modo de fenda
+        function setSlitMode(mode) {
+            config.slitMode = mode;
+            singleSlitBtn.classList.toggle('active', mode === 'single');
+            doubleSlitBtn.classList.toggle('active', mode === 'double');
+        }
+        
+        // Função para resetar o experimento
+        function resetExperiment() {
+            config.particles = [];
+            config.screen = new Array(canvas.width).fill(0);
+        }
+        
+        // Função para criar uma nova partícula
+        function createParticle() {
+            const y = Math.random() * canvas.height;
+            config.particles.push({
+                x: 0,
+                y: y,
+                color: 'rgba(255, 255, 255, 0.7)',
+                isObserved: false,
+                targetY: null
+            });
+        }
+        
+        // Função para desenhar as fendas
+        function drawSlits() {
+            ctx.fillStyle = '#3f51b5';
+            
+            // Desenha a barreira
+            ctx.fillRect(SLIT_X_POSITION, 0, 5, canvas.height);
+            
+            // Desenha as aberturas das fendas (removendo partes da barreira)
+            ctx.fillStyle = '#000';
+            
+            if (config.slitMode === 'single') {
+                // Uma fenda no centro
+                ctx.clearRect(SLIT_X_POSITION, canvas.height/2 - SLIT_HEIGHT/2, 5, SLIT_HEIGHT);
+            } else {
+                // Duas fendas
+                ctx.clearRect(SLIT_X_POSITION, canvas.height/2 - SLIT_HEIGHT/2 - SLIT_SPACING, 5, SLIT_HEIGHT);
+                ctx.clearRect(SLIT_X_POSITION, canvas.height/2 - SLIT_HEIGHT/2 + SLIT_SPACING, 5, SLIT_HEIGHT);
+            }
+            
+            // Desenha a tela de detecção
+            ctx.fillStyle = '#555';
+            ctx.fillRect(SCREEN_X_POSITION, 0, 2, canvas.height);
+        }
+        
+        // Função para atualizar e desenhar a tela de detecção
+        function drawDetectionScreen() {
+            // Encontrar o valor máximo para normalização
+            const maxValue = Math.max(...config.screen, 1);
+            
+            // Desenhar o padrão na tela de detecção
+            for (let y = 0; y < canvas.height; y++) {
+                const intensity = Math.min(1, config.screen[y] / maxValue);
+                ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`;
+                ctx.fillRect(SCREEN_X_POSITION + 3, y, 10, 1);
+            }
+        }
+        
+        // Função para atualizar a posição da partícula
+        function updateParticles() {
+            for (let i = config.particles.length - 1; i >= 0; i--) {
+                const particle = config.particles[i];
+                
+                // Mover a partícula
+                particle.x += PARTICLE_SPEED;
+                
+                // Verificar se a partícula chegou à barreira de fendas
+                if (!particle.isObserved && particle.x >= SLIT_X_POSITION && particle.x <= SLIT_X_POSITION + 5) {
+                    // Verificar se a partícula passa por alguma fenda
+                    let passesThroughSlit = false;
+                    
+                    if (config.slitMode === 'single') {
+                        passesThroughSlit = (
+                            particle.y >= canvas.height/2 - SLIT_HEIGHT/2 &&
+                            particle.y <= canvas.height/2 + SLIT_HEIGHT/2
+                        );
+                    } else {
+                        // Verifica se passa pela fenda superior
+                        const upperSlitTop = canvas.height/2 - SLIT_HEIGHT/2 - SLIT_SPACING;
+                        const upperSlitBottom = canvas.height/2 + SLIT_HEIGHT/2 - SLIT_SPACING;
+                        
+                        // Verifica se passa pela fenda inferior
+                        const lowerSlitTop = canvas.height/2 - SLIT_HEIGHT/2 + SLIT_SPACING;
+                        const lowerSlitBottom = canvas.height/2 + SLIT_HEIGHT/2 + SLIT_SPACING;
+                        
+                        passesThroughSlit = (
+                            (particle.y >= upperSlitTop && particle.y <= upperSlitBottom) ||
+                            (particle.y >= lowerSlitTop && particle.y <= lowerSlitBottom)
+                        );
+                        
+                        // Se estamos medindo, determinar por qual fenda a partícula passou
+                        if (config.measuring && passesThroughSlit) {
+                            particle.isObserved = true;
+                            
+                            if (particle.y >= upperSlitTop && particle.y <= upperSlitBottom) {
+                                // Passou pela fenda superior
+                                particle.targetY = Math.random() * SLIT_HEIGHT + upperSlitTop;
+                                particle.color = 'rgba(0, 255, 100, 0.7)'; // Verde para fenda superior
+                            } else {
+                                // Passou pela fenda inferior
+                                particle.targetY = Math.random() * SLIT_HEIGHT + lowerSlitTop;
+                                particle.color = 'rgba(100, 100, 255, 0.7)'; // Azul para fenda inferior
+                            }
+                        }
+                    }
+                    
+                    // Se não passar por nenhuma fenda, remove a partícula
+                    if (!passesThroughSlit) {
+                        config.particles.splice(i, 1);
+                        continue;
+                    }
+                }
+                
+                // Se a partícula estiver sendo observada, move-a em direção ao alvo
+                if (particle.isObserved && particle.targetY !== null) {
+                    const dy = particle.targetY - particle.y;
+                    particle.y += dy * 0.1;
+                }
+                
+                // Se a partícula não estiver sendo observada depois das fendas, adiciona um movimento ondulatório
+                if (!particle.isObserved && particle.x > SLIT_X_POSITION + 5) {
+                    // Criar um movimento ondulatório baseado no comprimento de onda
+                    const amplitude = config.wavelength / 5;
+                    const waveFactor = 0.01;
+                    particle.y += Math.sin(particle.x * waveFactor * (50 / config.wavelength)) * amplitude;
+                }
+                
+                // Verificar se a partícula chegou à tela de detecção
+                if (particle.x >= SCREEN_X_POSITION) {
+                    // Incrementar o contador na posição Y correspondente
+                    const screenY = Math.floor(particle.y);
+                    if (screenY >= 0 && screenY < canvas.height) {
+                        config.screen[screenY] += 1;
+                    }
+                    
+                    // Remover a partícula
+                    config.particles.splice(i, 1);
+                }
+            }
+        }
+        
+        // Função para desenhar as partículas
+        function drawParticles() {
+            config.particles.forEach(particle => {
+                ctx.fillStyle = particle.color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, PARTICLE_SIZE, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        // Função principal de desenho
+        function draw() {
+            // Limpar o canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Criar novas partículas com base na taxa de emissão
+            if (Math.random() < config.particleRate / 100) {
+                createParticle();
+            }
+            
+            // Atualizar e desenhar as partículas
+            updateParticles();
+            drawParticles();
+            
+            // Desenhar as fendas
+            drawSlits();
+            
+            // Desenhar a tela de detecção
+            drawDetectionScreen();
+            
+            // Continuar a animação
+            requestAnimationFrame(draw);
+        }
+        
+        // Iniciar o experimento
+        setSlitMode('double');
+        draw();
+    </script>
+</body>
+</html>
